@@ -1,0 +1,14 @@
+Instlacion en Windows
+paso 1,-
+
+python -m venv venv_compras
+
+paso 2.- permisos:
+
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+paso3.- 
+.\venv_compras\Scripts\Activate.ps1
+
+paso4 actualzar
+python -m pip install --upgrade pip setuptools wheel
