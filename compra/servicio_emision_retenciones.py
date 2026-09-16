@@ -64,7 +64,7 @@ def fetch_compras_para_retencion(limit):
                 codigo_numerico=str(cod_num),
                 establecimiento=estab or emp.establecimiento,
                 punto_emision=pto or emp.punto_emision,
-                tipo_comprobante="03",
+                tipo_comprobante="07",
                 clave_acceso_liquidacion=clave_liq,
                 secuencial_retencion=int(sec_ret),
                 codigo_numerico_retencion=str(cod_ret),

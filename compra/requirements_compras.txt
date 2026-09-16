@@ -1,0 +1,32 @@
+# --- SOAP / HTTP (cliente SRI) ---
+zeep==4.3.1
+requests==2.32.4
+requests-toolbelt==1.0.0
+urllib3==2.5.0
+
+# --- XML / Firma digital XAdES ---
+lxml==6.0.0
+signxml==4.2.0
+cryptography==45.0.6
+xmlsec==1.3.16
+pyOpenSSL==25.1.0
+cffi==1.17.1
+pycparser==2.22
+
+# --- Base de datos ---
+mysql-connector-python==9.4.0
+
+# --- PDF ---
+fpdf==1.7.2
+
+# --- Dependencias transitivas (para que no falle nada) ---
+python-dateutil==2.9.0.post0
+six==1.17.0
+pytz==2025.2
+tzdata==2025.2
+isodate==0.7.2
+idna==3.10
+certifi==2025.8.3
+charset-normalizer==3.4.3
+attrs==25.3.0
+packaging==25.0

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os, time, decimal, logging, traceback
+from datetime import datetime, date
 from lxml import etree
 from comun_compras import (
     db_conn, fetch_empresa, fetch_proveedor, fetch_compra_items,
@@ -15,6 +16,33 @@ logger = logging.getLogger("emision_liquidaciones")
 LIMITE_ENVIO = int(os.getenv("LIMITE_ENVIO", "1000"))
 DIR_XML = os.path.join(os.getcwd(), "liquidaciones")
 os.makedirs(DIR_XML, exist_ok=True)
+
+
+def _parse_fecha(fecha_val):
+    """
+    Devuelve (fecha_emision 'dd/mm/yyyy', fecha_ddmmaaaa 'ddmmaaaa').
+    Acepta datetime, date, str ISO, str latino, etc.
+    """
+    if fecha_val is None:
+        raise ValueError("fecha_compra es NULL en la BD")
+
+    if isinstance(fecha_val, datetime):
+        dt = fecha_val
+    elif isinstance(fecha_val, date):
+        dt = datetime(fecha_val.year, fecha_val.month, fecha_val.day)
+    else:
+        s = str(fecha_val).strip().replace("T", " ").split()[0]
+        dt = None
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y"):
+            try:
+                dt = datetime.strptime(s, fmt)
+                break
+            except ValueError:
+                continue
+        if dt is None:
+            raise ValueError(f"Formato de fecha no soportado: {fecha_val!r}")
+
+    return dt.strftime("%d/%m/%Y"), dt.strftime("%d%m%Y")
 
 
 def fetch_compras_pendientes(limit):
@@ -35,18 +63,27 @@ def fetch_compras_pendientes(limit):
         for row in cur.fetchall():
             (cid, fecha, total, emp_id, sec, cod_num, estab, pto,
              tipo, prov_id) = row
-            fecha_str = fecha.strftime("%Y-%m-%d %H:%M:%S") if hasattr(fecha, "strftime") else str(fecha)
+
+            # DEBUG: ver qué trae el driver
+            logger.info(
+                f"Compra {cid} fecha_compra desde BD: {fecha!r} "
+                f"(tipo={type(fecha).__name__}, tipo_comprobante_BD={tipo!r})"
+            )
+
             emp  = fetch_empresa(cur, emp_id)
             prov = fetch_proveedor(cur, prov_id)
             items = fetch_compra_items(cur, cid)
+
             compras.append(Compra(
-                compra_id=int(cid), fecha=fecha_str,
-                total=decimal.Decimal(total), secuencial=int(sec),
+                compra_id=int(cid),
+                fecha=fecha,          # pasamos el objeto crudo, NO string
+                total=decimal.Decimal(total),
+                secuencial=int(sec),
                 empresa=emp, proveedor=prov, items=items,
                 codigo_numerico=str(cod_num),
                 establecimiento=estab or emp.establecimiento,
                 punto_emision=pto or emp.punto_emision,
-                tipo_comprobante=tipo or "03",
+                tipo_comprobante="03",  # ← FORZADO para liquidación de compra
             ))
         return compras
     finally:
@@ -54,9 +91,10 @@ def fetch_compras_pendientes(limit):
 
 
 def liquidacion_xml(c: Compra, version="1.1.0"):
-    fecha_parte   = c.fecha.split()[0]
-    fecha_ddmmaaaa = fecha_parte[8:10] + fecha_parte[5:7] + fecha_parte[0:4]
-    fecha_emision  = f"{fecha_parte[8:10]}/{fecha_parte[5:7]}/{fecha_parte[0:4]}"
+    fecha_emision, fecha_ddmmaaaa = _parse_fecha(c.fecha)
+
+    logger.info(f"Compra {c.compra_id} -> fecha_emision={fecha_emision!r} "
+                f"fecha_ddmmaaaa={fecha_ddmmaaaa!r}")
 
     clave = generar_clave_acceso(
         fecha_ddmmaaaa, c.tipo_comprobante, c.empresa.ruc, AMBIENTE,
@@ -167,6 +205,12 @@ def main():
                     cn.commit(); continue
 
                 clave, xml_sin = liquidacion_xml(c)
+
+                # Dump del XML sin firma para inspección
+                with open(os.path.join(DIR_XML, f"{clave}_sinfirma.xml"), "w", encoding="utf-8") as f:
+                    f.write(xml_sin)
+                logger.info(f"XML sin firma guardado: {clave}_sinfirma.xml")
+
                 xml_firmado = firmar_xml(xml_sin, c.empresa.cert_path, c.empresa.cert_password)
 
                 with open(os.path.join(DIR_XML, f"{clave}.xml"), "w", encoding="utf-8") as f:

@@ -1,0 +1,7 @@
+cd "C:\Users\juan.choez\Desktop\CANGRIVIC SA\batch facturas V2 31-08-2026\cangrivic-comprobantes-batch\compra"
+$py = ".\venv_compras\Scripts\python.exe"
+& $py servicio_emision_liquidaciones.py
+& $py servicio_autorizacion_liquidaciones.py
+& $py servicio_emision_retenciones.py
+& $py servicio_autorizacion_retenciones.py
+& $py servicio_envio_correo_compras.py
